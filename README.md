@@ -19,4 +19,4 @@ Initial board design.
 
 ## Schematic
 
-[PDF](kicad/releases/v1/opamp-vos-schematic.pdf).
+[PDF](kicad/releases/v1/prog-cc-100mA-schematic.pdf).
