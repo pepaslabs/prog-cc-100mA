@@ -1,0 +1,241 @@
+Cmp-Mod V01 Created by CvPcb (2013-07-07 BZR 4022)-stable date = Wed 10 May 2017 06:35:40 PM CDT
+
+BeginCmp
+TimeStamp = /58F0A874;
+Reference = C1;
+ValeurCmp = 0.1uF;
+IdModule  = PL_capacitors:CERCAP_2_059B_0805;
+EndCmp
+
+BeginCmp
+TimeStamp = /58F985B2;
+Reference = C2;
+ValeurCmp = 0.1uF;
+IdModule  = PL_capacitors:CERCAP_2_059B_0805;
+EndCmp
+
+BeginCmp
+TimeStamp = /58F03795;
+Reference = C3;
+ValeurCmp = 0.1uF;
+IdModule  = PL_capacitors:CERCAP_2_059B_0805;
+EndCmp
+
+BeginCmp
+TimeStamp = /58F749BE;
+Reference = C4;
+ValeurCmp = 10uF;
+IdModule  = PL_capacitors:ELCAP_10_20_V_059A;
+EndCmp
+
+BeginCmp
+TimeStamp = /58F876B4;
+Reference = C5;
+ValeurCmp = 10uF;
+IdModule  = PL_capacitors:ELCAP_10_20_V_059A;
+EndCmp
+
+BeginCmp
+TimeStamp = /58F05B2B;
+Reference = C6;
+ValeurCmp = 0.1uF;
+IdModule  = PL_capacitors:CERCAP_2_059B_0805;
+EndCmp
+
+BeginCmp
+TimeStamp = /58EEFD12;
+Reference = C7;
+ValeurCmp = 0.1uF;
+IdModule  = PL_capacitors:CERCAP_2_059B_0805;
+EndCmp
+
+BeginCmp
+TimeStamp = /58EF1CFA;
+Reference = C8;
+ValeurCmp = 0.1uF;
+IdModule  = PL_capacitors:CERCAP_2_059B_0805;
+EndCmp
+
+BeginCmp
+TimeStamp = /58F7A3D4;
+Reference = C9;
+ValeurCmp = ?pF;
+IdModule  = PL_capacitors:CERCAP_2_059B_0805;
+EndCmp
+
+BeginCmp
+TimeStamp = /58F08E65;
+Reference = C10;
+ValeurCmp = 0.1uF;
+IdModule  = PL_capacitors:CERCAP_2_059B_0805;
+EndCmp
+
+BeginCmp
+TimeStamp = /58F85A98;
+Reference = D1;
+ValeurCmp = 1N4001;
+IdModule  = PL_diodes:DIODE_1A_069A_PL;
+EndCmp
+
+BeginCmp
+TimeStamp = /58F876BA;
+Reference = D2;
+ValeurCmp = 1N4001;
+IdModule  = PL_diodes:DIODE_1A_069A_PL;
+EndCmp
+
+BeginCmp
+TimeStamp = /58F967E1;
+Reference = D3;
+ValeurCmp = LED;
+IdModule  = PL_LEDs:LED_3MM_069A;
+EndCmp
+
+BeginCmp
+TimeStamp = /58F0A081;
+Reference = IC1;
+ValeurCmp = ATTINY85-P;
+IdModule  = PL_DIP:DIP8_059A_PL;
+EndCmp
+
+BeginCmp
+TimeStamp = /5913A6DA;
+Reference = P1;
+ValeurCmp = CONN_2;
+IdModule  = ;
+EndCmp
+
+BeginCmp
+TimeStamp = /5913A6C5;
+Reference = P2;
+ValeurCmp = CONN_2;
+IdModule  = ;
+EndCmp
+
+BeginCmp
+TimeStamp = /5913A6B3;
+Reference = P3;
+ValeurCmp = CONN_2;
+IdModule  = ;
+EndCmp
+
+BeginCmp
+TimeStamp = /5913A6FF;
+Reference = P4;
+ValeurCmp = CONN_4;
+IdModule  = ;
+EndCmp
+
+BeginCmp
+TimeStamp = /58F8AFFD;
+Reference = Q1;
+ValeurCmp = TIP41C;
+IdModule  = PL_TO-220:TO-220_V_069A;
+EndCmp
+
+BeginCmp
+TimeStamp = /58F81B7B;
+Reference = R1;
+ValeurCmp = 100k;
+IdModule  = PL_resistors:R_AXIAL_0W25_059A_PL;
+EndCmp
+
+BeginCmp
+TimeStamp = /58F81CDB;
+Reference = R2;
+ValeurCmp = 100k;
+IdModule  = PL_resistors:R_AXIAL_0W25_059A_PL;
+EndCmp
+
+BeginCmp
+TimeStamp = /58EF9E1B;
+Reference = R3;
+ValeurCmp = 100k;
+IdModule  = PL_resistors:R_AXIAL_0W25_059A_PL;
+EndCmp
+
+BeginCmp
+TimeStamp = /58EF84AE;
+Reference = R4;
+ValeurCmp = 100k;
+IdModule  = PL_resistors:R_AXIAL_0W25_059A_PL;
+EndCmp
+
+BeginCmp
+TimeStamp = /58EFCA7C;
+Reference = R5;
+ValeurCmp = 220;
+IdModule  = PL_resistors:R_AXIAL_0W25_059A_PL;
+EndCmp
+
+BeginCmp
+TimeStamp = /58EF9D65;
+Reference = R6;
+ValeurCmp = 100k;
+IdModule  = PL_resistors:R_AXIAL_0W25_059A_PL;
+EndCmp
+
+BeginCmp
+TimeStamp = /58EF85A0;
+Reference = R7;
+ValeurCmp = 100k;
+IdModule  = PL_resistors:R_AXIAL_0W25_059A_PL;
+EndCmp
+
+BeginCmp
+TimeStamp = /58ED1BDB;
+Reference = R8;
+ValeurCmp = 10R;
+IdModule  = PL_resistors:R_AXIAL_0W25_059A_PL;
+EndCmp
+
+BeginCmp
+TimeStamp = /58ED1EBC;
+Reference = R9;
+ValeurCmp = 10R;
+IdModule  = PL_resistors:R_AXIAL_0W25_059A_PL;
+EndCmp
+
+BeginCmp
+TimeStamp = /58ED1D00;
+Reference = R10;
+ValeurCmp = 10R;
+IdModule  = PL_resistors:R_AXIAL_0W25_059A_PL;
+EndCmp
+
+BeginCmp
+TimeStamp = /58ED1EC2;
+Reference = R11;
+ValeurCmp = 10R;
+IdModule  = PL_resistors:R_AXIAL_0W25_059A_PL;
+EndCmp
+
+BeginCmp
+TimeStamp = /58F968BE;
+Reference = R12;
+ValeurCmp = 220;
+IdModule  = PL_resistors:R_AXIAL_0W25_059A_PL;
+EndCmp
+
+BeginCmp
+TimeStamp = /58EFDF82;
+Reference = U1;
+ValeurCmp = 7805;
+IdModule  = PL_TO-220:TO-220_V_069A;
+EndCmp
+
+BeginCmp
+TimeStamp = /58EF0F34;
+Reference = U2;
+ValeurCmp = MCP4801;
+IdModule  = PL_DIP:DIP8_059A_PL;
+EndCmp
+
+BeginCmp
+TimeStamp = /58EF71F1;
+Reference = U3;
+ValeurCmp = LM358;
+IdModule  = PL_DIP:DIP8_059A_PL;
+EndCmp
+
+EndListe
