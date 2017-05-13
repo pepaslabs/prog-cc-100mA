@@ -20,8 +20,8 @@
 #
 #   Best 3 pairs:
 #   r4 & r6 (99.45 & 99.45): ratio = 1.000000 (error = 0.000000%)
-#   r3 & r12 (99.76 & 99.77): ratio = 0.999900 (error = -0.000001%)
-#   r8 & r17 (99.56 & 99.58): ratio = 0.999799 (error = -0.000002%)
+#   r3 & r12 (99.76 & 99.77): ratio = 0.999900 (error = -0.010023%)
+#   r8 & r17 (99.56 & 99.58): ratio = 0.999799 (error = -0.020084%)
 #
 # (It isn't really necessary to show the best three pairs -- typically you
 # are only interested in the best pair.  This is done just to verify that the
@@ -77,4 +77,4 @@ n = 3
 print "Best %s pairs:" % n
 for i in range(n):
 	(sort_key, error, ratio, (a_value, a_name), (b_value, b_name)) = ratios[i]
-	print "%s & %s (%s & %s): ratio = %f (error = %f%%)" % (a_name, b_name, a_value, b_value, ratio, error/100.0)
+	print "%s & %s (%s & %s): ratio = %f (error = %f%%)" % (a_name, b_name, a_value, b_value, ratio, error*100.0)
