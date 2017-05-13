@@ -13,6 +13,10 @@ Initial board design.
 
 ![](kicad/releases/v1/bottom.png)
 
+![](.media/IMG_1271.JPG)
+
+![](.media/IMG_1278.JPG)
+
 ## Gerbers
 
 [gerbers.zip](kicad/releases/v1/gerbers.zip)
