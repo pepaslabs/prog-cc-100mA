@@ -1,0 +1,14 @@
+- add a reset button
+- add a power switch?
+- increase font size of + and - symbols on power plugs
+- add diode on the output?
+- create a version with built-in optoisolators?  and built-in FTDI/USB?
+- create a version which uses rotary encoders for manual control via DAC?
+- characterize the step-change response
+- characterize the tempco of the unit
+- try a variant with better resistors
+- try a variant with all 5% resistors?
+- move away from semi-colon as deliminator.  use newlines.
+- add room for a heatsink?
+- add circuitry to achieve true zero output?  a transistor to pull down a line or a trim pot to adjust the zero.
+- redesign this board to use a single (low offset) opamp (e.g. OPO7)
