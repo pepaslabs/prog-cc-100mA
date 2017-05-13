@@ -1,9 +1,11 @@
 # prog-cc-100mA
 A programmable 100mA current source
 
+![](.media/IMG_1278.JPG)
+
 # Status
 
-This board is untested.
+Boards have been spun and I'm writing the firmware.
 
 # Board design v1
 
@@ -14,8 +16,6 @@ Initial board design.
 ![](kicad/releases/v1/bottom.png)
 
 ![](.media/IMG_1271.JPG)
-
-![](.media/IMG_1278.JPG)
 
 ## Gerbers
 
