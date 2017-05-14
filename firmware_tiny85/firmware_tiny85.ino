@@ -75,7 +75,7 @@ To set an MCP4821 (12-bit) DAC to max output current:
 */    
 
 // Hex file compiled using Arduino 1.8.2 for ATtiny85 consumes:
-// ->  7,120 (of 8,192) bytes of flash
+// ->  7,034 (of 8,192) bytes of flash
 // ->  284 (of 512) bytes of SRAM for global variables
 
 // Pull in uint8_t, uint16_t, etc.
@@ -154,6 +154,10 @@ SPI_device_t spi_dac = { .bus = &spi_bus,
 
 SoftwareSerial serial(RX_pin, TX_pin);
 
+#ifdef HAS_RUNTIME_VERBOSITY_CONFIG
+bool verbose = false;
+#endif
+
 
 // --- buffer
 
@@ -166,11 +170,10 @@ char buffer_bytes[BUFF_LEN];
 char_buffer_t buffer = { .len = BUFF_LEN, .bytes = buffer_bytes };
 
 
-// --- globals
+// --- Calibration values
 
 
-// Default values.  These can be calibrated over the serial connection, and are
-// remembered via EEPROM.
+// These can be calibrated over the serial connection, and are remembered via EEPROM.
 
 // This is the measured output current (in milliamps) when the DAC is at min output (code 0).
 float zero = 0.0;
@@ -187,12 +190,8 @@ struct _correction_t
 };
 typedef _correction_t correction_t;
 
-correction_t correction = { .offset = -(zero), .scale = 102.4 / (full_scale - zero) };
-
-
-#ifdef HAS_RUNTIME_VERBOSITY_CONFIG
-bool verbose = false;
-#endif
+//correction_t correction = { .offset = -(zero), .scale = 102.4 / (full_scale - zero) };
+correction_t correction;
 
 
 // --- Strings:
@@ -211,7 +210,8 @@ const char *STRING_CORRECTION_SCALE = "scale: ";
 const char *STRING_OK = "OK";
 const char *STRING_ERROR = "!E";
 
-// --- setup():
+
+// --- Setup & loop:
 
 
 void setup()
@@ -244,6 +244,7 @@ void setup()
 
   clear_char_buffer(&buffer);
 }
+
 
 void loop()
 {
