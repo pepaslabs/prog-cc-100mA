@@ -74,7 +74,9 @@ To set an MCP4821 (12-bit) DAC to max output current:
     C4095;
 */    
 
-// Hex file compiled using Arduino 1.8.2 for ATtiny85 is 7,132 bytes (of 8,192 max)
+// Hex file compiled using Arduino 1.8.2 for ATtiny85 consumes:
+// ->  7,120 (of 8,192) bytes of flash
+// ->  284 (of 512) bytes of SRAM for global variables
 
 // Pull in uint8_t, uint16_t, etc.
 #define __STDC_LIMIT_MACROS
@@ -243,8 +245,75 @@ void setup()
   clear_char_buffer(&buffer);
 }
 
-
 void loop()
+{
+  read_and_run_command();
+}
+
+
+// --- EEPROM
+
+
+#ifdef HAS_EEPROM_BACKED_CALIBRATION_VALUES
+
+uint8_t EEMEM eeprom_has_been_initialized_token_address;
+#define EEPROM_HAS_BEEN_INITIALIZED_CODE 44
+
+float EEMEM zero_EEPROM_address;
+float EEMEM full_scale_EEPROM_address;
+
+bool eeprom_has_been_initialized()
+{
+  uint8_t has_been_initialized_token = eeprom_read_byte(&eeprom_has_been_initialized_token_address);
+  return (has_been_initialized_token == EEPROM_HAS_BEEN_INITIALIZED_CODE);
+}
+
+
+void initialize_eeprom()
+{
+  eeprom_write_byte(&eeprom_has_been_initialized_token_address, EEPROM_HAS_BEEN_INITIALIZED_CODE);
+  eeprom_write_float(&zero_EEPROM_address, zero);
+  eeprom_write_float(&full_scale_EEPROM_address, full_scale);  
+}
+
+
+void load_values_from_eeprom()
+{
+  zero = eeprom_read_float(&zero_EEPROM_address);
+  full_scale = eeprom_read_float(&full_scale_EEPROM_address);
+
+  // also update the correction factor
+  recalculate_correction_factor(zero, full_scale, &correction);
+}
+
+void bootstrap_EEPROM()
+{
+  if (eeprom_has_been_initialized() == false)
+  {
+    initialize_eeprom();
+  }
+  else
+  {
+    load_values_from_eeprom();
+  }
+}
+
+#endif // HAS_EEPROM_BACKED_CALIBRATION_VALUES
+
+
+// --- Calibration / correction factor:
+
+
+void recalculate_correction_factor(float zero, float full_scale, correction_t *correction) {
+  correction->offset = -(zero);
+  correction->scale = 102.4 / (full_scale - zero);
+}
+
+
+// --- Serial utility functions:
+
+
+void read_and_run_command()
 {
   command_t command = read_command(&serial, &buffer);
   if (command >= END_OF_COMMANDS_SECTION)
@@ -365,86 +434,70 @@ void loop()
 }
 
 
-// --- EEPROM
-
-
-#ifdef HAS_EEPROM_BACKED_CALIBRATION_VALUES
-
-uint8_t EEMEM eeprom_has_been_initialized_token_address;
-#define EEPROM_HAS_BEEN_INITIALIZED_CODE 44
-
-float EEMEM zero_EEPROM_address;
-float EEMEM full_scale_EEPROM_address;
-
-bool eeprom_has_been_initialized()
-{
-  uint8_t has_been_initialized_token = eeprom_read_byte(&eeprom_has_been_initialized_token_address);
-  return (has_been_initialized_token == EEPROM_HAS_BEEN_INITIALIZED_CODE);
-}
-
-
-void initialize_eeprom()
-{
-  eeprom_write_byte(&eeprom_has_been_initialized_token_address, EEPROM_HAS_BEEN_INITIALIZED_CODE);
-  eeprom_write_float(&zero_EEPROM_address, zero);
-  eeprom_write_float(&full_scale_EEPROM_address, full_scale);  
-}
-
-
-void load_values_from_eeprom()
-{
-  zero = eeprom_read_float(&zero_EEPROM_address);
-  full_scale = eeprom_read_float(&full_scale_EEPROM_address);
-
-  // also update the correction factor
-  recalculate_correction_factor(zero, full_scale, &correction);
-}
-
-void bootstrap_EEPROM()
-{
-  if (eeprom_has_been_initialized() == false)
-  {
-    initialize_eeprom();
-  }
-  else
-  {
-    load_values_from_eeprom();
-  }
-}
-
-#endif // HAS_EEPROM_BACKED_CALIBRATION_VALUES
-
-
-// --- Calibration / correction factor:
-
-
-void recalculate_correction_factor(float zero, float full_scale, correction_t *correction) {
-  correction->offset = -(zero);
-  correction->scale = 102.4 / (full_scale - zero);
-}
-
-
-// --- Serial utility functions:
-
-
 command_t read_command(SoftwareSerial *serial, char_buffer_t *buffer)
 {
-  // --- read the first character
-  
-  while(serial->available() == 0)
-  {
-    continue;
-  }
-    
-  char ch = serial->read();
+  // strategy:
+  // throw away any leading \r and \n
+  // read the first char to determine which command this is
+  // read the rest of the line into a buffer
 
-  error_t error = read_until_sentinel(serial, buffer, ';');
-  if (error != OK_NO_ERROR)
+  char command_ch;
+
+  // read the first character to figure out which command this is
+  while(true)
   {
-    return error;
+    // busy-wait for serial data to become available
+    while(serial->available() == 0)
+    {
+      continue;
+    }
+
+    command_ch = serial->read();
+
+    // if this was leftover trailing newline garbage from the previous command, skip it
+    if (command_ch == '\r' || command_ch == '\n')
+    {
+      continue;
+    }
+    else
+    {
+      break;
+    }
+  }
+
+  uint8_t num_chars_consumed = 0;
+  char *buff_ptr = buffer->bytes;
+
+  // read the rest of the line into a buffer, which will be used by the command implementation
+  while(true)
+  {
+    // busy-wait for serial data to become available
+    while(serial->available() == 0)
+    {
+      continue;
+    }
+    
+    *buff_ptr = serial->read();
+    num_chars_consumed++;
+
+    if (*buff_ptr == '\r' || *buff_ptr == '\n')
+    {
+      *buff_ptr = '\0';
+      break;
+    }
+    else if (num_chars_consumed == buffer->len - 1)
+    {
+      *buff_ptr = '\0';
+      return ERROR_BUFFER_FILLED_UP_BEFORE_SENTINEL_REACHED;
+    }
+    else
+    {
+      buff_ptr++;
+      continue;
+    }
   }
   
-  switch(ch)
+  switch(command_ch)
   {
     #ifdef HAS_INCREMENT_COMMAND
     case '+':
@@ -514,40 +567,6 @@ command_t read_command(SoftwareSerial *serial, char_buffer_t *buffer)
     {
       return ERROR_UNKNOWN_COMMAND;
     }
-  }
-}
-
-
-error_t read_until_sentinel(SoftwareSerial *serial, char_buffer_t *buffer, char sentinel)
-{
-  uint8_t num_chars_consumed = 0;
-  char *buff_ptr = buffer->bytes;
-  
-  while(true)
-  {
-    while(serial->available() == 0)
-    {
-      continue;
-    }
-    
-    *buff_ptr = serial->read();
-    num_chars_consumed++;
-
-    if (*buff_ptr == sentinel)
-    {
-      *buff_ptr = '\0';
-      return OK_NO_ERROR;
-    }
-    else if (num_chars_consumed == buffer->len - 1)
-    {
-      *buff_ptr = '\0';
-      return ERROR_BUFFER_FILLED_UP_BEFORE_SENTINEL_REACHED;
-    }
-    else
-    {
-      buff_ptr++;
-      continue;
-    }  
   }
 }
 
@@ -639,17 +658,6 @@ error_t parse_and_run_current_command(char_buffer_t *buffer, DAC_data_t *dac_dat
   {
     return ERROR_PARSED_CURRENT_OUTSIDE_SUPPORTED_RANGE;
   }
-
-  #ifdef HAS_RUNTIME_VERBOSITY_CONFIG
-  #ifdef HAS_CURRENT_COMMAND_DEBUGGING
-  if (verbose == true)
-  {
-    serial.print(STRING_DAC_CODE);
-    serial.println(dac_data->code, 4);
-    serial.flush();
-  }
-  #endif
-  #endif
   
   MCP4821_packet_t packet = dac_data_as_MCP4821_packet(dac_data);
   spi_write_MCP4821_packet(spi_dac, packet);
@@ -663,17 +671,6 @@ error_t parse_and_run_current_command(char_buffer_t *buffer, DAC_data_t *dac_dat
 error_t parse_and_run_code_command(char_buffer_t *buffer, DAC_data_t *dac_data, SPI_device_t *spi_dac, bool use_gain)
 {
   uint16_t new_code = atoi(buffer->bytes);
-
-  #ifdef HAS_RUNTIME_VERBOSITY_CONFIG  
-  #ifdef HAS_CODE_COMMAND_DEBUGGING
-  if (verbose == true)
-  {
-    serial.print(STRING_DAC_CODE);
-    serial.println(new_code);
-    serial.flush();
-  }
-  #endif
-  #endif
 
   if (dac_data_set_code(dac_data, new_code) == false)
   {
@@ -778,7 +775,10 @@ void printError(error_t error)
 void printSuccess(command_t command)
 {
   serial.print(STRING_OK);
-  serial.println(command);
+  serial.print(command);
+  serial.print(", ");
+  serial.print(STRING_DAC_CODE);
+  serial.println(dac_data.code);
   serial.flush();
 }
 #endif
