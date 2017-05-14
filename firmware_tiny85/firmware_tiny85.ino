@@ -10,10 +10,11 @@
  https://github.com/SpenceKonde/ATTinyCore/blob/master/Installation.md
  */
 
-// Hex file compiled using Arduino 1.8.2 for ATtiny85 is FIXME bytes (of 8,192 max)
+// Hex file compiled using Arduino 1.8.2 for ATtiny85 is 6,996 bytes (of 8,192 max)
 
 #define __STDC_LIMIT_MACROS
 #include <stdint.h>
+#include <avr/eeprom.h> // see http://www.atmel.com/webdoc/avrlibcreferencemanual/group__avr__eeprom.html
 
 #include "features.h"
 
@@ -53,7 +54,7 @@ Serial commands:
 
 'i': Set the output voltage to 5 milliamps:
 
-    i5.000;
+    i5; or i5.0;
 
 'c': Set the DAC output code to 37, no gain:
 
@@ -74,11 +75,11 @@ Serial commands:
 (Note: '+' and '-' do not alter the DAC gain bool.)
 
 
-'z': Calibrate the zero-current output code:
+'z': Calibrate the zero output to 0.05mA:
 
-    g7;
+    z0.05;
 
-'f': Calibrate full-scale output (the measured milliamps for output code 255):
+'f': Calibrate full-scale output to 101.3mA:
 
     f101.3;
 
@@ -119,9 +120,9 @@ To set an MCP4821 (12-bit) DAC to max output current:
 
 
 // Uncomment one of the following to choose your DAC:
-DAC_config_t dac_config = MCP4801_config();
-//DAC_config_t dac_config = MCP4811_config();
-//DAC_config_t dac_config = MCP4821_config();
+//DAC_config_t dac_config = MCP4801_config(); // 8-bit
+//DAC_config_t dac_config = MCP4811_config(); // 10-bit
+DAC_config_t dac_config = MCP4821_config(); // 12-bit
 
 
 // --- DAC / SPI:
@@ -169,11 +170,22 @@ char_buffer_t buffer = { .len = BUFF_LEN, .bytes = buffer_bytes };
 // Default values.  These can be calibrated over the serial connection, and are
 // remembered via EEPROM.
 
-// This is the DAC code which produces zero volts.
-uint16_t zero_code = 0;
+// This is the measured output current (in milliamps) when the DAC is at min output (code 0).
+float zero = 0.0;
 
 // This is the measured output current (in milliamps) when the DAC is at max output (e.g., code 255 for an 8-bit DAC).
-float full_scale = 100.0;
+float full_scale = 102.4;
+
+
+// A correction factor to apply to any requested current setting, based on the calibration settings.
+struct _correction_t
+{
+  float offset;
+  float scale;
+};
+typedef _correction_t correction_t;
+
+correction_t correction = { .offset = -(zero), .scale = 102.4 / (full_scale - zero) };
 
 
 #ifdef HAS_RUNTIME_VERBOSITY_CONFIG
@@ -190,7 +202,7 @@ void setup()
   #ifdef HAS_BOOT_MESSAGE
   {
     delay(10);
-    serial.print("prog-cc-100mA OK;\n");
+    serial.println("prog-cc-100mA (0.4mA resolution) OK;");
     serial.flush();
   }
   #endif
@@ -200,6 +212,9 @@ void setup()
     bootstrap_EEPROM();
   }
   #endif
+
+  // calculate the correction factor
+  recalculate_correction_factor(zero, full_scale, &correction);
   
   // setup soft SPI
   pinMode(spi_bus.MOSI_pin, OUTPUT);
@@ -268,18 +283,18 @@ void loop()
     }
     #endif
 
-    #ifdef HAS_CALIBRATE_FULL_SCALE_COMMAND
-    case COMMAND_CALIBRATE_FULL_SCALE:
+    #ifdef HAS_CALIBRATE_ZERO_COMMAND
+    case COMMAND_CALIBRATE_ZERO:
     {
-      error = parse_and_run_calibrate_full_scale_command(&buffer, &dac_data, &spi_dac);
+      error = parse_and_run_calibrate_zero_command(&buffer);
       break;
     }
     #endif
   
-    #ifdef HAS_CALIBRATE_ZERO_COMMAND
-    case COMMAND_CALIBRATE_ZERO:
+    #ifdef HAS_CALIBRATE_FULL_SCALE_COMMAND
+    case COMMAND_CALIBRATE_FULL_SCALE:
     {
-      error = parse_and_run_calibrate_zero_command(&buffer, &dac_data, &spi_dac);
+      error = parse_and_run_calibrate_full_scale_command(&buffer);
       break;
     }
     #endif
@@ -339,12 +354,10 @@ void loop()
 #ifdef HAS_EEPROM_BACKED_CALIBRATION_VALUES
 
 uint8_t EEMEM eeprom_has_been_initialized_token_address;
-#define EEPROM_HAS_BEEN_INITIALIZED_CODE 42
+#define EEPROM_HAS_BEEN_INITIALIZED_CODE 44
 
+float EEMEM zero_EEPROM_address;
 float EEMEM full_scale_EEPROM_address;
-
-uint16_t EEMEM zero_code_EEPROM_address;
-
 
 bool eeprom_has_been_initialized()
 {
@@ -356,17 +369,19 @@ bool eeprom_has_been_initialized()
 void initialize_eeprom()
 {
   eeprom_write_byte(&eeprom_has_been_initialized_token_address, EEPROM_HAS_BEEN_INITIALIZED_CODE);
+  eeprom_write_float(&zero_EEPROM_address, zero);
   eeprom_write_float(&full_scale_EEPROM_address, full_scale);  
-  eeprom_write_word(&zero_code_EEPROM_address, zero_code);
 }
 
 
 void load_values_from_eeprom()
 {
+  zero = eeprom_read_float(&zero_EEPROM_address);
   full_scale = eeprom_read_float(&full_scale_EEPROM_address);
-  zero_code = eeprom_read_word(&zero_code_EEPROM_address);
-}
 
+  // also update the correction factor
+  recalculate_correction_factor(zero, full_scale, &correction);
+}
 
 void bootstrap_EEPROM()
 {
@@ -381,6 +396,12 @@ void bootstrap_EEPROM()
 }
 
 #endif // HAS_EEPROM_BACKED_CALIBRATION_VALUES
+
+
+void recalculate_correction_factor(float zero, float full_scale, correction_t *correction) {
+  correction->offset = -(zero);
+  correction->scale = 102.4 / (full_scale - zero);
+}
 
 
 // ---
@@ -437,17 +458,17 @@ command_t read_command(SoftwareSerial *serial, char_buffer_t *buffer)
     }
     #endif
     
-    #ifdef HAS_CALIBRATE_FULL_SCALE_COMMAND
-    case 'g':
+    #ifdef HAS_CALIBRATE_ZERO_COMMAND
+    case 'z':
     {
-      return COMMAND_CALIBRATE_FULL_SCALE;
+      return COMMAND_CALIBRATE_ZERO;
     }
     #endif
     
-    #ifdef HAS_CALIBRATE_ZERO_COMMAND
-    case 'r':
+    #ifdef HAS_CALIBRATE_FULL_SCALE_COMMAND
+    case 'f':
     {
-      return COMMAND_CALIBRATE_ZERO;
+      return COMMAND_CALIBRATE_FULL_SCALE;
     }
     #endif
     
@@ -519,7 +540,7 @@ void send_dac_data(DAC_data_t *dac_data, SPI_device_t *spi_dac)
 
 
 #ifdef HAS_INCREMENT_COMMAND
-error_t increment_output_voltage(DAC_data_t *dac_data, SPI_device_t *spi_dac)
+error_t increment_output_current(DAC_data_t *dac_data, SPI_device_t *spi_dac)
 {
   if (dac_data_increment_code(dac_data) == false)
   {
@@ -533,7 +554,7 @@ error_t increment_output_voltage(DAC_data_t *dac_data, SPI_device_t *spi_dac)
 
 
 #ifdef HAS_DECREMENT_COMMAND
-error_t decrement_output_voltage(DAC_data_t *dac_data, SPI_device_t *spi_dac)
+error_t decrement_output_current(DAC_data_t *dac_data, SPI_device_t *spi_dac)
 {
   if (dac_data_decrement_code(dac_data) == false)
   {
@@ -551,11 +572,10 @@ error_t parse_and_run_current_command(char_buffer_t *buffer, DAC_data_t *dac_dat
 {
   float output_current = atof(buffer->bytes);
 
-  #ifdef HAS_RUNTIME_VERBOSITY_CONFIG  
+  #ifdef HAS_RUNTIME_VERBOSITY_CONFIG
   #ifdef HAS_CURRENT_COMMAND_DEBUGGING
   if (verbose == true)
   {
-    serial.println();
     serial.print("parsed current: ");
     serial.println(output_current, 4);
     serial.flush();
@@ -567,13 +587,43 @@ error_t parse_and_run_current_command(char_buffer_t *buffer, DAC_data_t *dac_dat
   {
     return ERROR_PARSED_CURRENT_OUTSIDE_SUPPORTED_RANGE;
   }
-  
-  float DAC_volts = output_current * 20.0;
+
+  // apply the correction factor to the requested output current
+  output_current = (output_current + correction.offset) * correction.scale;
+  if (output_current < 0) output_current = 0;
+  if (output_current > 102.4) output_current = 102.4;
+
+  #ifdef HAS_RUNTIME_VERBOSITY_CONFIG
+  #ifdef HAS_CURRENT_COMMAND_DEBUGGING
+  if (verbose == true)
+  {
+    serial.print("corrected current: ");
+    serial.println(output_current, 4);
+    serial.flush();
+  }
+  #endif
+  #endif
+
+  // We have a 10R shunt and a 2x divider
+  // 102.4mA becomes a 1.024V drop across the shunt.  DAC needs to output 2.048V to achieve this.
+  // 102.4 / 50 = 2.048
+  float DAC_volts = output_current / 50.0;
     
   if (dac_data_set_voltage(dac_data, DAC_volts) == false)
   {
-    return ERROR_PARSED_VOLTAGE_OUTSIDE_SUPPORTED_RANGE;
+    return ERROR_PARSED_CURRENT_OUTSIDE_SUPPORTED_RANGE;
   }
+
+  #ifdef HAS_RUNTIME_VERBOSITY_CONFIG
+  #ifdef HAS_CURRENT_COMMAND_DEBUGGING
+  if (verbose == true)
+  {
+    serial.print("sending DAC code: ");
+    serial.println(dac_data->code, 4);
+    serial.flush();
+  }
+  #endif
+  #endif
   
   MCP4821_packet_t packet = dac_data_as_MCP4821_packet(dac_data);
   spi_write_MCP4821_packet(spi_dac, packet);
@@ -592,7 +642,6 @@ error_t parse_and_run_code_command(char_buffer_t *buffer, DAC_data_t *dac_data, 
   #ifdef HAS_CODE_COMMAND_DEBUGGING
   if (verbose == true)
   {
-    serial.println();
     serial.print("parsed code: ");
     serial.println(new_code);
     serial.flush();
@@ -613,71 +662,77 @@ error_t parse_and_run_code_command(char_buffer_t *buffer, DAC_data_t *dac_data, 
 #endif
 
 
-#ifdef HAS_CALIBRATE_OP_AMP_GAIN_COMMAND
-error_t parse_and_run_calibrate_gain_command(char_buffer_t *buffer, DAC_data_t *dac_data, SPI_device_t *spi_dac)
+#ifdef HAS_CALIBRATE_ZERO_COMMAND
+error_t parse_and_run_calibrate_zero_command(char_buffer_t *buffer)
 {
-  float new_gain = atof(buffer->bytes);
+  float new_zero = atof(buffer->bytes);
   
   #ifdef HAS_RUNTIME_VERBOSITY_CONFIG  
-  #ifdef HAS_CALIBRATE_OP_AMP_GAIN_COMMAND_DEBUGGING
+  #ifdef HAS_CALIBRATE_ZERO_COMMAND_DEBUGGING
   if (verbose == true)
   {
-    serial.println();
-    serial.print("parsed gain: ");
-    serial.println(new_gain, 4);
+    serial.print("parsed zero: ");
+    serial.println(new_zero, 4);
     serial.flush();
   }
   #endif
   #endif
-  
-  if (new_gain < 1.0)
+
+  // check that the requested new zero value is sane
+  if (new_zero < -1.0 || new_zero > 1.0)
   {
-    return ERROR_PARSED_GAIN_OUTSIDE_SUPPORTED_RANGE;
+    return ERROR_PARSED_ZERO_OUTSIDE_SUPPORTED_RANGE;
   }
-  
-  op_amp_gain = new_gain;
+
+  zero = new_zero;
   
   #ifdef HAS_EEPROM_BACKED_CALIBRATION_VALUES
   {
-    eeprom_write_float(&op_amp_gain_EEPROM_address, op_amp_gain);
+    eeprom_write_float(&zero_EEPROM_address, zero);  
   }
   #endif
+
+  // also update the correction factor
+  recalculate_correction_factor(zero, full_scale, &correction);
   
   return OK_NO_ERROR;  
 }
 #endif
 
 
-#ifdef HAS_CALIBRATE_LM317_VREF_COMMAND
-error_t parse_and_run_calibrate_vref_command(char_buffer_t *buffer, DAC_data_t *dac_data, SPI_device_t *spi_dac)
+#ifdef HAS_CALIBRATE_FULL_SCALE_COMMAND
+error_t parse_and_run_calibrate_full_scale_command(char_buffer_t *buffer)
 {
-  float new_vref = atof(buffer->bytes);
+  float new_full_scale = atof(buffer->bytes);
   
-  #ifdef HAS_RUNTIME_VERBOSITY_CONFIG  
-  #ifdef HAS_CALIBRATE_LM317_VREF_COMMAND_DEBUGGING
+  #ifdef HAS_RUNTIME_VERBOSITY_CONFIG
+  #ifdef HAS_CALIBRATE_FULL_SCALE_COMMAND_DEBUGGING
   if (verbose == true)
   {
-    serial.println();
-    serial.print("parsed vref: ");
-    serial.println(new_vref, 4);
+    serial.print("parsed full_scale: ");
+    serial.println(new_full_scale, 4);
     serial.flush();
   }
   #endif
   #endif
-  
-  if (new_vref < 0)
+
+  // check that the requested new full-scale value is sane
+  if (new_full_scale < (102.4 * 0.9) || new_full_scale > (102.4 * 1.1))
   {
-    return ERROR_PARSED_VREF_OUTSIDE_SUPPORTED_RANGE;
+    return ERROR_PARSED_FULL_SCALE_OUTSIDE_SUPPORTED_RANGE;
   }
   
-  LM317_vref = new_vref;
+  full_scale = new_full_scale;
   
   #ifdef HAS_EEPROM_BACKED_CALIBRATION_VALUES
   {
-    eeprom_write_float(&LM317_vref_EEPROM_address, LM317_vref);  
+    eeprom_write_float(&full_scale_EEPROM_address, full_scale);
   }
   #endif
-  
+
+  // also update the correction factor
+  recalculate_correction_factor(zero, full_scale, &correction);
+
   return OK_NO_ERROR;  
 }
 #endif
@@ -688,7 +743,7 @@ void printError(error_t error)
 {
   serial.print("!e");
   serial.print(error);
-  serial.print(";");
+  serial.println(";");
   serial.flush();
 }
 #endif
@@ -699,7 +754,7 @@ void printSuccess(command_t command)
 {
   serial.print("ok");
   serial.print(command);
-  serial.print(";\n");
+  serial.println(";");
   serial.flush();
 }
 #endif
@@ -708,15 +763,18 @@ void printSuccess(command_t command)
 #ifdef HAS_DUMP_COMMAND
 error_t dump(DAC_data_t *dac_data)
 {
-  serial.println();
   serial.print("DAC code: ");
   serial.println(dac_data->code);
   serial.print("DAC gain: ");
   serial.println(dac_data->gain);
-  serial.print("LM317 vref: ");
-  serial.println(LM317_vref, 4);
-  serial.print("op amp gain: ");
-  serial.println(op_amp_gain, 4);
+  serial.print("zero: ");
+  serial.println(zero, 4);
+  serial.print("full_scale: ");
+  serial.println(full_scale, 4);
+  serial.print("correction.offset: ");
+  serial.println(correction.offset, 4);
+  serial.print("correction.scale: ");
+  serial.println(correction.scale, 4);
   serial.flush();
   return OK_NO_ERROR;
 }

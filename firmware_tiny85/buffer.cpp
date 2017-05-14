@@ -21,3 +21,4 @@ void clear_uint8_buffer(uint8_buffer_t *buff)
   memset(buff->bytes, 0, buff->len);
 }
 
+

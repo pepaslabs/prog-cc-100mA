@@ -32,3 +32,4 @@ void clear_uint8_buffer(uint8_buffer_t *buff);
 
 
 #endif
+

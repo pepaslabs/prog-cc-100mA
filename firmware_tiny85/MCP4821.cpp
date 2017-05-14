@@ -65,3 +65,4 @@ DAC_config_t MCP4821_config()
 // thanks to https://github.com/cversek/multimeter for hints on the SPI interface.
 // see https://github.com/cversek/multimeter/blob/master/arduino/MultimeterLib/MCP4801.cpp
 
+
