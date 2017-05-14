@@ -10,11 +10,79 @@
  https://github.com/SpenceKonde/ATTinyCore/blob/master/Installation.md
  */
 
-// Hex file compiled using Arduino 1.8.2 for ATtiny85 is 6,996 bytes (of 8,192 max)
+/*
+Serial command examples:
 
+'i': Set the output current to 5 milliamps:
+
+    i5; or i5.0;
+
+'c': Set the DAC output code to 37, no gain:
+
+    c37;
+    
+'C': Set the DAC output code to 217, with 2x gain:
+
+    C217;
+
+'+': Increase the DAC output by one LSB:
+
+    +;
+
+'-': Decrease the DAC output by one LSB:
+
+    -;
+
+(Note: '+' and '-' do not alter the DAC gain boolean.)
+
+'z': Calibrate the zero output to 0.05mA:
+
+    z0.05;
+
+'f': Calibrate full-scale output to 101.3mA:
+
+    f101.3;
+
+'?': Dump the current state:
+
+    ?;
+
+'d': Disable verbose debug output (default):
+
+    d;
+
+'D': Enable verbose debug output:
+
+    D;
+*/
+
+/*
+A note about DAC selection and the 'C' command:
+
+The 'c' and 'C' commands are relative to the resolution of the DAC.
+
+To set an MCP4801 (8-bit) DAC to max output current:
+
+    C255;
+
+To set an MCP4811 (10-bit) DAC to max output current:
+
+    C1023;
+
+To set an MCP4821 (12-bit) DAC to max output current:
+
+    C4095;
+*/    
+
+// Hex file compiled using Arduino 1.8.2 for ATtiny85 is 7,132 bytes (of 8,192 max)
+
+// Pull in uint8_t, uint16_t, etc.
 #define __STDC_LIMIT_MACROS
 #include <stdint.h>
-#include <avr/eeprom.h> // see http://www.atmel.com/webdoc/avrlibcreferencemanual/group__avr__eeprom.html
+
+// Pull in EEMEM, etc.
+// see http://www.atmel.com/webdoc/avrlibcreferencemanual/group__avr__eeprom.html
+#include <avr/eeprom.h>
 
 #include "features.h"
 
@@ -27,6 +95,9 @@
 #include "MCP4821.h"
 
 #include "command.h"
+
+
+// --- Pinouts / connections:
 
 
 // ATtiny85 pinout:
@@ -48,84 +119,13 @@
 //                            +------+
 
 
-/*
-
-Serial commands:
-
-'i': Set the output voltage to 5 milliamps:
-
-    i5; or i5.0;
-
-'c': Set the DAC output code to 37, no gain:
-
-    c37;
-    
-'C': Set the DAC output code to 217, with 2x gain:
-
-    C217;
-
-'+': Increase the DAC output by one LSB:
-
-    +;
-
-'-': Decrease the DAC output by one LSB:
-
-    -;
-
-(Note: '+' and '-' do not alter the DAC gain bool.)
-
-
-'z': Calibrate the zero output to 0.05mA:
-
-    z0.05;
-
-'f': Calibrate full-scale output to 101.3mA:
-
-    f101.3;
-
-'?': Dump the current state:
-
-    ?;
-
-'d': Disable verbose debug output (default):
-
-    d;
-
-'D': Enable verbose debug output:
-
-    D;
-
-*/
-
-
-/*
-
-A note about DAC selection and the 'C' command:
-
-The 'c' and 'C' commands are relative to the resolution of the DAC.
-
-To set an MCP4801 (8-bit) DAC to max output current:
-
-    C255;
-
-To set an MCP4811 (10-bit) DAC to max output current:
-
-    C1023;
-
-To set an MCP4821 (12-bit) DAC to max output current:
-
-    C4095;
-
-*/    
+// --- DAC / SPI:
 
 
 // Uncomment one of the following to choose your DAC:
-//DAC_config_t dac_config = MCP4801_config(); // 8-bit
-//DAC_config_t dac_config = MCP4811_config(); // 10-bit
-DAC_config_t dac_config = MCP4821_config(); // 12-bit
-
-
-// --- DAC / SPI:
+//DAC_config_t dac_config = MCP4801_config(); // 8-bit, 0.4mA output resolution
+//DAC_config_t dac_config = MCP4811_config(); // 10-bit, 0.1mA output resolution
+DAC_config_t dac_config = MCP4821_config(); // 12-bit, 0.025mA output resolution
 
 
 DAC_data_t dac_data = { .config = &dac_config, .gain = false, .code = 0x0 };
@@ -192,7 +192,24 @@ correction_t correction = { .offset = -(zero), .scale = 102.4 / (full_scale - ze
 bool verbose = false;
 #endif
 
-// ---
+
+// --- Strings:
+
+
+const char *STRING_BOOT_MESSAGE = "prog-cc-100mA OK;";
+const char *STRING_PARSED_CURRENT = "current: ";
+const char *STRING_CORRECTED_CURRENT = "corrected: ";
+const char *STRING_DAC_CODE = "code: ";
+const char *STRING_ZERO = "zero: ";
+const char *STRING_FULL_SCALE = "full scale: ";
+const char *STRING_DAC_RESOLUTION = "resolution: ";
+const char *STRING_DAC_GAIN = "gain: ";
+const char *STRING_CORRECTION_OFFSET = "offset: ";
+const char *STRING_CORRECTION_SCALE = "scale: ";
+const char *STRING_OK = "OK";
+const char *STRING_ERROR = "!E";
+
+// --- setup():
 
 
 void setup()
@@ -202,7 +219,7 @@ void setup()
   #ifdef HAS_BOOT_MESSAGE
   {
     delay(10);
-    serial.println("prog-cc-100mA (0.4mA resolution) OK;");
+    serial.println(STRING_BOOT_MESSAGE);
     serial.flush();
   }
   #endif
@@ -398,13 +415,16 @@ void bootstrap_EEPROM()
 #endif // HAS_EEPROM_BACKED_CALIBRATION_VALUES
 
 
+// --- Calibration / correction factor:
+
+
 void recalculate_correction_factor(float zero, float full_scale, correction_t *correction) {
   correction->offset = -(zero);
   correction->scale = 102.4 / (full_scale - zero);
 }
 
 
-// ---
+// --- Serial utility functions:
 
 
 command_t read_command(SoftwareSerial *serial, char_buffer_t *buffer)
@@ -532,11 +552,17 @@ error_t read_until_sentinel(SoftwareSerial *serial, char_buffer_t *buffer, char 
 }
 
 
+// --- DAC functions:
+
+
 void send_dac_data(DAC_data_t *dac_data, SPI_device_t *spi_dac)
 {
   MCP4821_packet_t packet = dac_data_as_MCP4821_packet(dac_data);
   spi_write_MCP4821_packet(spi_dac, packet);
 }
+
+
+// --- Command implementations:
 
 
 #ifdef HAS_INCREMENT_COMMAND
@@ -576,7 +602,7 @@ error_t parse_and_run_current_command(char_buffer_t *buffer, DAC_data_t *dac_dat
   #ifdef HAS_CURRENT_COMMAND_DEBUGGING
   if (verbose == true)
   {
-    serial.print("parsed current: ");
+    serial.print(STRING_PARSED_CURRENT);
     serial.println(output_current, 4);
     serial.flush();
   }
@@ -597,7 +623,7 @@ error_t parse_and_run_current_command(char_buffer_t *buffer, DAC_data_t *dac_dat
   #ifdef HAS_CURRENT_COMMAND_DEBUGGING
   if (verbose == true)
   {
-    serial.print("corrected current: ");
+    serial.print(STRING_CORRECTED_CURRENT);
     serial.println(output_current, 4);
     serial.flush();
   }
@@ -618,7 +644,7 @@ error_t parse_and_run_current_command(char_buffer_t *buffer, DAC_data_t *dac_dat
   #ifdef HAS_CURRENT_COMMAND_DEBUGGING
   if (verbose == true)
   {
-    serial.print("sending DAC code: ");
+    serial.print(STRING_DAC_CODE);
     serial.println(dac_data->code, 4);
     serial.flush();
   }
@@ -642,7 +668,7 @@ error_t parse_and_run_code_command(char_buffer_t *buffer, DAC_data_t *dac_data, 
   #ifdef HAS_CODE_COMMAND_DEBUGGING
   if (verbose == true)
   {
-    serial.print("parsed code: ");
+    serial.print(STRING_DAC_CODE);
     serial.println(new_code);
     serial.flush();
   }
@@ -671,7 +697,7 @@ error_t parse_and_run_calibrate_zero_command(char_buffer_t *buffer)
   #ifdef HAS_CALIBRATE_ZERO_COMMAND_DEBUGGING
   if (verbose == true)
   {
-    serial.print("parsed zero: ");
+    serial.print(STRING_ZERO);
     serial.println(new_zero, 4);
     serial.flush();
   }
@@ -709,7 +735,7 @@ error_t parse_and_run_calibrate_full_scale_command(char_buffer_t *buffer)
   #ifdef HAS_CALIBRATE_FULL_SCALE_COMMAND_DEBUGGING
   if (verbose == true)
   {
-    serial.print("parsed full_scale: ");
+    serial.print(STRING_FULL_SCALE);
     serial.println(new_full_scale, 4);
     serial.flush();
   }
@@ -741,9 +767,8 @@ error_t parse_and_run_calibrate_full_scale_command(char_buffer_t *buffer)
 #ifdef HAS_ERROR_PRINTING
 void printError(error_t error)
 {
-  serial.print("!e");
-  serial.print(error);
-  serial.println(";");
+  serial.print(STRING_ERROR);
+  serial.println(error);
   serial.flush();
 }
 #endif
@@ -752,9 +777,8 @@ void printError(error_t error)
 #ifdef HAS_SUCCESS_PRINTING
 void printSuccess(command_t command)
 {
-  serial.print("ok");
-  serial.print(command);
-  serial.println(";");
+  serial.print(STRING_OK);
+  serial.println(command);
   serial.flush();
 }
 #endif
@@ -763,17 +787,19 @@ void printSuccess(command_t command)
 #ifdef HAS_DUMP_COMMAND
 error_t dump(DAC_data_t *dac_data)
 {
-  serial.print("DAC code: ");
+  serial.print(STRING_DAC_RESOLUTION);
+  serial.println(dac_config.resolution);
+  serial.print(STRING_DAC_CODE);
   serial.println(dac_data->code);
-  serial.print("DAC gain: ");
+  serial.print(STRING_DAC_GAIN);
   serial.println(dac_data->gain);
-  serial.print("zero: ");
+  serial.print(STRING_ZERO);
   serial.println(zero, 4);
-  serial.print("full_scale: ");
+  serial.print(STRING_FULL_SCALE);
   serial.println(full_scale, 4);
-  serial.print("correction.offset: ");
+  serial.print(STRING_CORRECTION_OFFSET);
   serial.println(correction.offset, 4);
-  serial.print("correction.scale: ");
+  serial.print(STRING_CORRECTION_SCALE);
   serial.println(correction.scale, 4);
   serial.flush();
   return OK_NO_ERROR;
