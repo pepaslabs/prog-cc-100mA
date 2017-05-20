@@ -5,7 +5,9 @@ A programmable 100mA current source
 
 # Status
 
-Boards have been spun and I'm writing the firmware.
+This board has been tested and works.
+
+With cheap components, it makes a decent low-precision current source.  I'm currently awaiting the arrival of some low temperature coefficient resistors and low input offset voltage opamps to see if performance can be improved.
 
 # Board design v1
 
